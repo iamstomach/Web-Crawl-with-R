@@ -111,109 +111,144 @@ setwd("M:/Car.com/MDM Segment/Specification")
 StartTime <- Sys.time()
 NoRecords.List <- character(0)
 Style.NoRecords.List <- character(0)
-
-for (veh.n in 23:dim(ModelList.all)[1]){
-modelselect <- c(31,34,36,38:41,43:45,47:50)  
-for (veh.n in modelselect){
-# veh.n <- 41
-my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
-my <- my[my>=2000]
-makename <- as.character(ModelList.all[veh.n,2])
-modelname <- as.character(ModelList.all[veh.n,4])
-veh <- paste(tolower(makename), '/', tolower(modelname), '/', sep = '')
-spec.URLname.List0 <- paste("http://www.cars.com/", veh, my, '/specifications/', sep = '')
-
-  for (Sty.n0 in 1:length(spec.URLname.List0)){
-#    Sty.n0 <- 13
-    spec.URLname0 <- spec.URLname.List0[Sty.n0];
-    spec.URLname0 <- gsub(" +", "-", spec.URLname0)
-    spec.URLname0 <- gsub("&", "and", spec.URLname0)
-    spec <- getURL(spec.URLname0) 
-    spec1 = htmlParse(spec, asText = TRUE, encoding = 'utf-8')
-    StyleList <- getNodeSet(doc = spec1, path = '//div/ul[@id="trimpop"]/li')
-    if (is.null(StyleList)){
-      print(paste('No records',spec.URLname0))
-      NoRecords.List <- rbind(NoRecords.List, spec.URLname0)
-    } else {
-      
-      dirname <- paste(makename, modelname)
-      if (!file.exists(paste('M:/Car.com/Specifications/',dirname, sep = ''))){
-        dir.create(paste('M:/Car.com/Specifications/',dirname, sep = ''))
-      }
-      setwd(paste('M:/Car.com/Specifications/',dirname, sep = ''))
-      
-    StyleList1 = sapply(StyleList, xmlValue)[1:length(StyleList)]
-    StyleList1.final <- StyleList1[-1]
-    StyleList2 <- getNodeSet(doc = spec1, path = '//div/ul[@id="trimpop"]')
+list30 <- character(0)
+for (segid in 1:dim(MDM.segment)[1]){
+  
+# for (segid in 8:8){
+#  segid <- 19
+  segname <- MDM.segment[segid,]
+  dirname <- paste(segname)
+  if (!file.exists(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))){
+    dir.create(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))
+  }
+  setwd(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))
+  
+  MDM.models.select <- MDM.models[MDM.models[,"segment"] == MDM.segment[segid,],"ModelID"]
+  MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])  
+  for (veh.n in MDM.models.select){
+#  for (veh.n in 338){
+#    veh.n <- 338
+    my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
+    my <- my[my>=2000]
+    makename <- as.character(ModelList.all[veh.n,2])
+    modelname <- as.character(ModelList.all[veh.n,4])
+    veh <- paste(tolower(makename), '/', tolower(modelname), '/', sep = '')
+    spec.URLname.List0 <- paste("http://www.cars.com/", veh, my, '/specifications/', sep = '')
     
-    StyleID <- sapply(seq(2, length(StyleList))*2-1,
-           function(i){xmlAttrs(xmlChildren(StyleList2[[1]])[[i]])[['id']]})
-    #save style list
-    StyleList3 <- cbind(StyleID, StyleList1.final)
-    colnames(StyleList3) = c("StyleID", "Style")
-    file.name <- paste(paste(makename, modelname, "Spec", my[Sty.n0]), ".xlsx", sep = "")
-    xls <- loadWorkbook(file.name, create=TRUE)
-    createSheet(xls, name="Style List")
-    writeWorksheet(xls, StyleList3, "Style List", header=TRUE)
-    setColumnWidth(xls, "Style List", column = 1:2, width = -1)
-    saveWorkbook(xls)
+    dirname1 <- paste(makename, modelname)
+    if (!file.exists(paste('M:/Car.com/MDM Segment/Specification/', dirname, "/", dirname1, sep = ''))){
+      dir.create(paste('M:/Car.com/MDM Segment/Specification/',dirname, "/",dirname1, sep = ''))
+    }
+    setwd(paste('M:/Car.com/MDM Segment/Specification/',dirname, "/",dirname1, sep = ''))
     
-      
-    spec.URLname.List <- paste(spec.URLname0,"?acode=", substr(StyleID, 7, 20), sep = '')
-    file.name <- paste(paste(makename, modelname, "Spec", my[Sty.n0]), ".xlsx", sep = "")
-
-    xls <- loadWorkbook(file.name, create=TRUE)
-      
-      for (Sty.n in 1:length(spec.URLname.List)){
-#        Sty.n <- 1
-        spec.URLname <- spec.URLname.List[Sty.n]
-        spec.URLname <- gsub(" +", "-", spec.URLname)
-        spec.URLname <- gsub("&", "and", spec.URLname)
-        spec <- getURL(spec.URLname)
-        spec = iconv(spec, 'gbk', 'utf-8')
-        spec1 = htmlParse(spec, asText = TRUE, encoding = 'UTF-8')
-        # more than one style
-        Engine.specname <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[2]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[2]//span[@class="spec-name"]')
-        Transm.specname <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[3]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[3]//span[@class="spec-name"]')
-        spec.Engine <- sapply(Engine.specname,xmlValue)
-        spec.Transm <- sapply(Transm.specname,xmlValue)
-        spec.result1 <- cbind(rbind(t(t(spec.Engine)), t(t(spec.Transm))), "")
-        spec.result1[spec.result1[,1] == "Engines", 2] = "Engines"
-        spec.result1[spec.result1[,1] == "Transmissions", 2] = "Transmissions"
+    for (Sty.n0 in 1:length(spec.URLname.List0)){
+#    for (Sty.n0 in 13:15){
+      spec.URLname0 <- spec.URLname.List0[Sty.n0];
+      spec.URLname0 <- gsub(" +", "-", spec.URLname0)
+      spec.URLname0 <- gsub("&", "and", spec.URLname0)
+      spec <- getURL(spec.URLname0) 
+      spec1 = htmlParse(spec, asText = TRUE, encoding = 'utf-8')
+      StyleList <- getNodeSet(doc = spec1, path = '//div/ul[@id="trimpop"]/li')
+      if (is.null(StyleList)){
+        print(paste('No records',segname, spec.URLname0))
+        NoRecords.List <- rbind(NoRecords.List, paste(segname, spec.URLname0))
+      } else {
         
-        Other.specname <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[4]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[4]//span[@class="spec-name"]')
-        Other.specdetail <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[4]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[4]//span[@class="spec-detail float-right"]')
-        spec.Other.name <- sapply(Other.specname,xmlValue)
-        spec.Other.detail <- sapply(Other.specdetail,xmlValue)
-        kk_final <- rbind(spec.result1, cbind(spec.Other.name, spec.Other.detail))
-        kk_final <- gsub('\\r|\\n|\\"|(^\\s*)|(\\s*$)', "",kk_final)
-        # get Style name
-        stylename <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/p/strong')
-        kk_final2 <- rbind(c("Style Name", sapply(stylename,xmlValue)), kk_final)
-        if (dim(kk_final2)[1] == 1 & dim(kk_final2)[2] == 1){
-          print(paste('No records',spec.URLname))
-          Style.NoRecords.List <- rbind(Style.NoRecords.List, spec.URLname)
-        } else {
-          colnames(kk_final2) <- c("SpecName", "SpecDetail")
-          
-          # export data to excel file
-#          file.name <- paste(paste(makename, modelname, "Spec", my[Sty.n0]), ".xlsx", sep = "")
-          sheet.name  <- paste(StyleID[Sty.n])
-#          xls <- loadWorkbook(file.name, create=TRUE)
-          createSheet(xls, name=sheet.name)
-          writeWorksheet(xls, kk_final2, sheet.name, header=TRUE)
-          setColumnWidth(xls, sheet.name, column = 1:2, width = -1)
-          print(paste(veh, my[Sty.n0], sapply(stylename, xmlValue)))
+        StyleList1 = sapply(StyleList, xmlValue)[1:length(StyleList)]
+        StyleList1.final <- StyleList1[-1]
+        StyleList2 <- getNodeSet(doc = spec1, path = '//div/ul[@id="trimpop"]')
+        
+#        try.test <- try(StyleID <- sapply(seq(2, length(StyleList))*2-1,
+#                              function(i){xmlAttrs(xmlChildren(StyleList2[[1]])[[i]])[['id']]}),
+#            silent = T)
+        StyleID <- sapply(seq(2, length(StyleList))*2-1,
+                          function(i){xmlAttrs(xmlChildren(StyleList2[[1]])[[i]])[['id']]})
+        #save style list
+        StyleList3 <- cbind(StyleID, StyleList1.final)
+        colnames(StyleList3) = c("StyleID", "Style")
+        file.name <- paste(paste("Spec", segname, makename, modelname, my[Sty.n0]), ".xlsx", sep = "")
+        xls <- loadWorkbook(file.name, create=TRUE)
+        createSheet(xls, name="Style List")
+        writeWorksheet(xls, StyleList3, "Style List", header=TRUE)
+        setColumnWidth(xls, "Style List", column = 1:2, width = -1)
+        saveWorkbook(xls)
+        if (length(StyleID)>25) {
+          file.name <- paste(paste("Spec", segname, makename, modelname, my[Sty.n0], "-2"), ".xlsx", sep = "")
+          xls <- loadWorkbook(file.name, create=TRUE)
+          createSheet(xls, name="Style List")
+          writeWorksheet(xls, StyleList3, "Style List", header=TRUE)
+          setColumnWidth(xls, "Style List", column = 1:2, width = -1)
+          saveWorkbook(xls)
+          list30 <- rbind(list30, paste(segname, spec.URLname0))
+        }
+        
+        
+        spec.URLname.List <- paste(spec.URLname0,"?acode=", substr(StyleID, 7, 20), sep = '')
+
+        
+        for (Sty.n in 1:length(spec.URLname.List)){
+#        for (Sty.n in 22:28){
+          spec.URLname <- spec.URLname.List[Sty.n]
+          spec.URLname <- gsub(" +", "-", spec.URLname)
+          spec.URLname <- gsub("&", "and", spec.URLname)
+          spec <- getURL(spec.URLname)
+          spec = iconv(spec, 'gbk', 'utf-8')
+          spec1 = htmlParse(spec, asText = TRUE, encoding = 'UTF-8')
+          # more than one style
+          Engine.specname <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[2]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[2]//span[@class="spec-name"]')
+          Transm.specname <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[3]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[3]//span[@class="spec-name"]')
+          Other.specname <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[4]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[4]//span[@class="spec-name"]')
+          if (is.null(Engine.specname) & is.null(Transm.specname) & is.null(Other.specname)){
+            print(paste('No records',segname, spec.URLname))
+            Style.NoRecords.List <- rbind(Style.NoRecords.List, paste(segname, spec.URLname))
+          } else {
+            spec.Engine <- sapply(Engine.specname,xmlValue)
+            spec.Transm <- sapply(Transm.specname,xmlValue)
+            spec.result1 <- cbind(rbind(t(t(spec.Engine)), t(t(spec.Transm))), "")
+            spec.result1[spec.result1[,1] == "Engines", 2] = "Engines"
+            spec.result1[spec.result1[,1] == "Transmissions", 2] = "Transmissions"
+            
+            Other.specdetail <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/div[4]/h2|//div[@id="specifications"]//div[@class="module-body"]/div[4]//span[@class="spec-detail float-right"]')
+            spec.Other.name <- sapply(Other.specname,xmlValue)
+            spec.Other.detail <- sapply(Other.specdetail,xmlValue)
+            kk_final <- rbind(spec.result1, cbind(spec.Other.name, spec.Other.detail))
+            kk_final <- gsub('\\r|\\n|\\"|(^\\s*)|(\\s*$)', "",kk_final)
+            # get Style name
+            stylename <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/p/strong')
+            kk_final2 <- rbind(c("Style Name", sapply(stylename,xmlValue)), kk_final)
+
+            colnames(kk_final2) <- c("SpecName", "SpecDetail")
+            
+            # export data to excel file
+            if (Sty.n>25) {
+              file.name <- paste(paste("Spec",segname, makename, modelname, my[Sty.n0], "-2"), ".xlsx", sep = "")
+              xls <- loadWorkbook(file.name, create=TRUE)
+              sheet.name  <- paste(StyleID[Sty.n])
+              createSheet(xls, name=sheet.name)
+              writeWorksheet(xls, kk_final2, sheet.name, header=TRUE)
+              setColumnWidth(xls, sheet.name, column = 1:2, width = -1)
+              saveWorkbook(xls)
+            } else {
+              file.name <- paste(paste("Spec",segname, makename, modelname, my[Sty.n0]), ".xlsx", sep = "")
+              xls <- loadWorkbook(file.name, create=TRUE)
+              sheet.name  <- paste(StyleID[Sty.n])
+              createSheet(xls, name=sheet.name)
+              writeWorksheet(xls, kk_final2, sheet.name, header=TRUE)
+              setColumnWidth(xls, sheet.name, column = 1:2, width = -1)
+              saveWorkbook(xls)
+            }
+
+            print(paste(segname, veh, my[Sty.n0], sapply(stylename, xmlValue)))
+          }
         }
       }
-      saveWorkbook(xls)
     }
   }
 }
 (UseTime <- Sys.time() - StartTime)
-write.table(NoRecords.List, "Spec-NoRecords-List3.txt")
-write.table(Style.NoRecords.List, "Style-NoRecords-List2.txt")
- 
+write.table(NoRecords.List, "Spec-NoRecords-List4.txt")
+write.table(Style.NoRecords.List, "Style-NoRecords-List4.txt")
+write.table(list30, "list304.txt") 
 ################# get warranty ----
 setwd("M:/Car.com/MDM Segment")
 dir.create("Warranty")
@@ -369,23 +404,23 @@ write.table(IIHS.NoRecords.List, "IIHS-NoRecords-List.txt")
 
 
 
-GG <- getURL('http://www.cars.com/core/js/templates/searchwidget/coreBuyIndexDropDownsSelect.json', .opts=opts)
-TT.modelyear <- fromJSON(GG)
-attributes(TT.modelyear)
-ff <- as.data.frame(do.call(rbind, TT.modelyear$NEW));
-as.data.frame(do.call(rbind, ff[1,3]))
-ff[1,3]
-TT.modelyear$NEW
-make <- TT.modelyear$NEW
-model <- make$models
+# change ford name
+library(stringr)
+setwd("M:/Car.com/Safety Rating")
+fordnames <- list.files()
+MDM.models0 <- MDM.models[str_trim(MDM.models[,"Make"])=="FORD",]
+MDM.models1 <- unique(cbind(paste(paste(MDM.models0[,6], "Safety-Ratings"), ".xlsx", sep=""), 
+                            paste(paste("Safety-Ratings", MDM.models0[,2], MDM.models0[,6]), ".xlsx", sep = ""))) 
+for (i in 1:dim(MDM.models1)[1]){
+  eval(parse(text = paste0("file.rename('", MDM.models1[i,1], "' , '", MDM.models1[i,2], "')")))
+}
 
-
-
-
-GG <- getURL('http://www.cars.com/ford/focus/2012/warranty/', .opts=opts)
-TT.modelyear <- fromJSON(GG)
-
-
-
-
-
+# change ford name in Specification
+library(stringr)
+file_names <- "M:/Car.com/MDM Segment/Specification/SPD_TRUCK/Ford F350"
+setwd(file_names)
+(fordnames <- list.files())
+(newfordnames <- paste("Spec SPD_TRUCK", gsub(" Spec", "", fordnames)))
+for (i in 1:length(fordnames)){
+  eval(parse(text = paste0("file.rename('", fordnames[i], "' , '", newfordnames[i], "')")))
+}
