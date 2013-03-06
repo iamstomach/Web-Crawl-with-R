@@ -1,25 +1,33 @@
-setwd("M:/Car.com/MDM Segment")
+##############################################
+###        Get Data Form cars.com
+###             2012-03-06
+##############################################
+
+rootfile <- "M:/Car.com/MDM Segment"
+setwd(rootfile)
+
+library(stringr)
 library(RCurl)
 library(rjson)
 require(XML)
 library(XLConnect)
-options( java.parameters = "-Xmx4g" )
-library( "RWeka" )
+options(java.parameters = "-Xmx4g" )
+library("RWeka" )
 
-# get ModelList ----
+# get ModelList in cars.com ----
 ModelYear <- getURL('http://www.cars.com/core/js/templates/crp/mmyCrp.json')
 TT.modelyear1 <- fromJSON(ModelYear)
 hh <- as.data.frame(do.call(rbind, TT.modelyear1$crpData));
 
 ModelList.all <- character(0)
 for (nn in 1:dim(hh)[1]){
-gg <- TT.modelyear1$crpData[[nn]]
-Make <- as.data.frame(do.call(cbind, gg$mk));
-Model.ModelYear <- as.data.frame(do.call(rbind, gg$mds));
-ModelList <- as.data.frame(cbind(Make, Model.ModelYear))
-ModelList.all <- rbind(ModelList.all, ModelList)
+  gg <- TT.modelyear1$crpData[[nn]]
+  Make <- as.data.frame(do.call(cbind, gg$mk));
+  Model.ModelYear <- as.data.frame(do.call(rbind, gg$mds));
+  ModelList <- as.data.frame(cbind(Make, Model.ModelYear))
+  ModelList.all <- rbind(ModelList.all, ModelList)
 }
-FordList <- ModelList.all[(ModelList.all$id==14),]
+
 file.create("AllModelList.xlsx")
 write.xlsx(ModelList.all, "AllModelList.xlsx", sheetName="Sheet1", 
            col.names=TRUE, row.names=TRUE, append=FALSE)
@@ -30,22 +38,27 @@ MDM.models <- readWorksheet(wb, sheet = "Segment-MDM")
 MDM.segment <- unique(MDM.models["segment"])
 
 
-# get Standard-equipment ----
+# part1: get Standard-equipment
+# part2: get Specification
+# part3: get Warranty
+# part4: get Safety Rating
+########   Note  #####
+## Each part is a multilple loop by make/model/modelyear, don't run it to the end, it will use
+## long time more than several hours, you can try only one make or one model
+
+################# part1: get Standard-equipment ----
+setwd(rootfile)
 dir.create("Equipment")
-setwd("M:/Car.com/MDM Segment/Equipment")
+setwd(paste(rootfile, "/Equipment", sep = ""))
 
 StartTime <- Sys.time()
 Equip.NoRecords.List <- character(0)
-for (segid in 1:dim(MDM.segment)[1]){
 
-for (segid in 1:1){
+for (segid in 1:dim(MDM.segment)[1]){
   segname <- MDM.segment[segid,]
   MDM.models.select <- MDM.models[MDM.models[,"segment"] == MDM.segment[segid,],"ModelID"]
-  MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])  
+  MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])
   for (veh.n in MDM.models.select){
-    
-    # for (veh.n in c(13,23)){
-    # veh.n <- 24
     my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
     my <- my[my>=2000]
     makename <- as.character(ModelList.all[veh.n,2])
@@ -104,18 +117,17 @@ for (segid in 1:1){
 Equip.NoRecords.List <- as.data.frame(Equip.NoRecords.List)
 write.table(Equip.NoRecords.List, "Equip-NoRecords-List.txt")
 
-################ get specification ----
-setwd("M:/Car.com/MDM Segment")
+################# Part2: get specification ----
+setwd(rootfile)
 dir.create("Specification")
-setwd("M:/Car.com/MDM Segment/Specification")
+setwd(paste(rootfile, "/Specification", sep = ""))
 StartTime <- Sys.time()
 NoRecords.List <- character(0)
 Style.NoRecords.List <- character(0)
 list30 <- character(0)
+onlyCommonStyleList <- character(0)
+
 for (segid in 1:dim(MDM.segment)[1]){
-  
-# for (segid in 8:8){
-#  segid <- 19
   segname <- MDM.segment[segid,]
   dirname <- paste(segname)
   if (!file.exists(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))){
@@ -126,8 +138,6 @@ for (segid in 1:dim(MDM.segment)[1]){
   MDM.models.select <- MDM.models[MDM.models[,"segment"] == MDM.segment[segid,],"ModelID"]
   MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])  
   for (veh.n in MDM.models.select){
-#  for (veh.n in 338){
-#    veh.n <- 338
     my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
     my <- my[my>=2000]
     makename <- as.character(ModelList.all[veh.n,2])
@@ -142,7 +152,6 @@ for (segid in 1:dim(MDM.segment)[1]){
     setwd(paste('M:/Car.com/MDM Segment/Specification/',dirname, "/",dirname1, sep = ''))
     
     for (Sty.n0 in 1:length(spec.URLname.List0)){
-#    for (Sty.n0 in 13:15){
       spec.URLname0 <- spec.URLname.List0[Sty.n0];
       spec.URLname0 <- gsub(" +", "-", spec.URLname0)
       spec.URLname0 <- gsub("&", "and", spec.URLname0)
@@ -152,15 +161,12 @@ for (segid in 1:dim(MDM.segment)[1]){
       if (is.null(StyleList)){
         print(paste('No records',segname, spec.URLname0))
         NoRecords.List <- rbind(NoRecords.List, paste(segname, spec.URLname0))
+      } else if (length(StyleList)==1) {
+        onlyCommonStyleList <- rbind(onlyCommonStyleList, paste(segname, spec.URLname0))
       } else {
-        
         StyleList1 = sapply(StyleList, xmlValue)[1:length(StyleList)]
         StyleList1.final <- StyleList1[-1]
         StyleList2 <- getNodeSet(doc = spec1, path = '//div/ul[@id="trimpop"]')
-        
-#        try.test <- try(StyleID <- sapply(seq(2, length(StyleList))*2-1,
-#                              function(i){xmlAttrs(xmlChildren(StyleList2[[1]])[[i]])[['id']]}),
-#            silent = T)
         StyleID <- sapply(seq(2, length(StyleList))*2-1,
                           function(i){xmlAttrs(xmlChildren(StyleList2[[1]])[[i]])[['id']]})
         #save style list
@@ -184,10 +190,9 @@ for (segid in 1:dim(MDM.segment)[1]){
         
         
         spec.URLname.List <- paste(spec.URLname0,"?acode=", substr(StyleID, 7, 20), sep = '')
-
+        
         
         for (Sty.n in 1:length(spec.URLname.List)){
-#        for (Sty.n in 22:28){
           spec.URLname <- spec.URLname.List[Sty.n]
           spec.URLname <- gsub(" +", "-", spec.URLname)
           spec.URLname <- gsub("&", "and", spec.URLname)
@@ -216,7 +221,7 @@ for (segid in 1:dim(MDM.segment)[1]){
             # get Style name
             stylename <- getNodeSet(doc = spec1, path = '//div[@id="specifications"]//div[@class="module-body"]/p/strong')
             kk_final2 <- rbind(c("Style Name", sapply(stylename,xmlValue)), kk_final)
-
+            
             colnames(kk_final2) <- c("SpecName", "SpecDetail")
             
             # export data to excel file
@@ -237,7 +242,7 @@ for (segid in 1:dim(MDM.segment)[1]){
               setColumnWidth(xls, sheet.name, column = 1:2, width = -1)
               saveWorkbook(xls)
             }
-
+            
             print(paste(segname, veh, my[Sty.n0], sapply(stylename, xmlValue)))
           }
         }
@@ -246,24 +251,26 @@ for (segid in 1:dim(MDM.segment)[1]){
   }
 }
 (UseTime <- Sys.time() - StartTime)
-write.table(NoRecords.List, "Spec-NoRecords-List4.txt")
-write.table(Style.NoRecords.List, "Style-NoRecords-List4.txt")
-write.table(list30, "list304.txt") 
-################# get warranty ----
-setwd("M:/Car.com/MDM Segment")
+write.table(NoRecords.List, "Spec-NoRecords-List.txt")
+write.table(Style.NoRecords.List, "Style-NoRecords-List.txt")
+write.table(list30, "list30.txt") 
+
+################# Part3: get warranty ----
+setwd(rootfile)
 dir.create("Warranty")
-setwd("M:/Car.com/MDM Segment/Warranty")
+setwd(paste(rootfile, "/Warranty", sep = ""))
+
 StartTime <- Sys.time()
 Warr.NoRecords.List <- character(0)
 
 for (segid in 1:dim(MDM.segment)[1]){
-  
-for (segid in 1:1){
   segname <- MDM.segment[segid,]
   MDM.models.select <- MDM.models[MDM.models[,"segment"] == MDM.segment[segid,],"ModelID"]
   MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])  
   for (veh.n in MDM.models.select){
+    #  for (veh.n in 703:704){
     my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
+    my <- my[my>=2000]
     makename <- as.character(ModelList.all[veh.n,2])
     modelname <- as.character(ModelList.all[veh.n,4])
     veh <- paste(tolower(makename), '/', tolower(modelname), '/', sep = '')
@@ -301,100 +308,100 @@ for (segid in 1:1){
     }        
   }    
 }
-  (UseTime <- Sys.time() - StartTime)
+(UseTime <- Sys.time() - StartTime)
 Warr.NoRecords.List <- as.data.frame(Warr.NoRecords.List)
 write.table(Warr.NoRecords.List, "Warr-NoRecords-List.txt")
 
-################# get Safety Rating ----
-setwd("M:/Car.com/MDM Segment")
+################# Part4: get Safety Rating ----
+setwd(rootfile)
 dir.create("Safety Rating")
-setwd("M:/Car.com/MDM Segment/Safety Rating")
+setwd(paste(rootfile, "/Safety Rating", sep = ""))
 
 StartTime <- Sys.time()
-
 rate.NoRecords.List <- character(0)
 NHTSA.NoRecords.List <- character(0)
 IIHS.NoRecords.List <- character(0)
-for (segid in 1:1){
+
+for (segid in 1:dim(MDM.segment)[1]){
   segname <- MDM.segment[segid,]
   MDM.models.select <- MDM.models[MDM.models[,"segment"] == MDM.segment[segid,],"ModelID"]
   MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])  
   for (veh.n in MDM.models.select){ 
-#  for (veh.n in 10:10){
-  my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
-  makename <- as.character(ModelList.all[veh.n,2])
-  modelname <- as.character(ModelList.all[veh.n,4])
-  veh <- paste(tolower(makename), '/', tolower(modelname), '/', sep = '')
-  rate.URLname.List <- paste("http://www.cars.com/", veh, my, '/safety-ratings/', sep = '')
-  
-  for (rate.n in 1:length(rate.URLname.List)){
-    rate.URLname <- rate.URLname.List[rate.n]
-    rate.URLname <- gsub(" +", "-", rate.URLname)
-    rate.URLname <- gsub("&", "and", rate.URLname)
-    rate <- getURL(rate.URLname)
-    rate = iconv(rate, 'gbk', 'utf-8')
-    rate1 = htmlParse(rate, asText = TRUE, encoding = 'UTF-8')
+    my <- strsplit(as.character(ModelList.all[veh.n,5]),",")[[1]]
+    my <- my[my>=2000]
+    makename <- as.character(ModelList.all[veh.n,2])
+    modelname <- as.character(ModelList.all[veh.n,4])
+    veh <- paste(tolower(makename), '/', tolower(modelname), '/', sep = '')
+    rate.URLname.List <- paste("http://www.cars.com/", veh, my, '/safety-ratings/', sep = '')
     
-    rate.specname <- getNodeSet(doc = rate1, path = '//div[@id="nhtsa-ratings"]//div[@class="module-body"]//div[@class="rowbottomborder nhtsaDataStyle"]|//div[@class="nhtsaDataStyle"]')
-    rate.specname22 <- getNodeSet(doc = rate1, path = '//div[@id="iihs-ratings"]//div[@class="module-body"]//div[@class="iihsDataStyle"]|//div[@class="rowbottomborder"]')
-    if (length(rate.specname)==0 & length(rate.specname22)==0) {
-      print(paste('All No records', segname, rate.URLname))
-      rate.NoRecords.List <- rbind(rate.NoRecords.List, paste(segname, rate.URLname))
-    } else {
-      # NHTSA Crash-Test Ratings
-      if (length(rate.specname)==0){
-        print(paste('NHTSA No records', segname, rate.URLname))
-        NHTSA.NoRecords.List <- rbind(NHTSA.NoRecords.List, paste(segname, rate.URLname))
-      } else {
-        rate.specdetail <- getNodeSet(doc = rate1, path = '//div[@id="nhtsa-ratings"]//div[@class="module-body"]//div[@class="rowbottomborder nhtsaDataStyle"]/div/span|//div[@class="nhtsaDataStyle"]/div/span')
-        spec.rate.name <- sapply(rate.specname,xmlValue)
-        spec.rate.detail <- sapply(seq(1, length(rate.specdetail)),
-                                   function(i){substr(xmlAttrs(rate.specdetail[[i]])[['style']], 8, 11)})
-        rate.header <- sapply(getNodeSet(doc = rate1, path = '//div[@id="nhtsa-ratings"]//div[@class="module-header"]/h3'),xmlValue)
-        rate.type <- strsplit(rate.header, " ")[[1]][1]
-        rate_final <- cbind(rate.type, spec.rate.name, spec.rate.detail)
-        rate_final <- gsub('\\r|\\n|\\"|(^\\s*)|(\\s*$)', "",rate_final)
-        colnames(rate_final) <- c("RatingType", "RatingName", "Rating")
-        # change to 5-4-3-2-1
-        rate_final[rate_final[,3]=="83.7", 3]=5
-        rate_final[rate_final[,3]=="67.0", 3]=4
-        rate_final[rate_final[,3]=="50.2", 3]=3
-        rate_final[rate_final[,3]=="33.5", 3]=2
-        rate_final[rate_final[,3]=="16.7", 3]=1
-      }
+    for (rate.n in 1:length(rate.URLname.List)){
+      rate.URLname <- rate.URLname.List[rate.n]
+      rate.URLname <- gsub(" +", "-", rate.URLname)
+      rate.URLname <- gsub("&", "and", rate.URLname)
+      rate <- getURL(rate.URLname)
+      rate = iconv(rate, 'gbk', 'utf-8')
+      rate1 = htmlParse(rate, asText = TRUE, encoding = 'UTF-8')
       
-      # IIHS Crash-Test Data
-      if (length(rate.specname22)==0){
-        print(paste('IIHS No records', segname, rate.URLname))
-        IIHS.NoRecords.List <- rbind(IIHS.NoRecords.List, paste(segname, rate.URLname))
-        
+      rate.specname <- getNodeSet(doc = rate1, path = '//div[@id="nhtsa-ratings"]//div[@class="module-body"]//div[@class="rowbottomborder nhtsaDataStyle"]|//div[@class="nhtsaDataStyle"]')
+      rate.specname22 <- getNodeSet(doc = rate1, path = '//div[@id="iihs-ratings"]//div[@class="module-body"]//div[@class="iihsDataStyle"]|//div[@class="rowbottomborder"]')
+      if (length(rate.specname)==0 & length(rate.specname22)==0) {
+        print(paste('All No records', segname, rate.URLname))
+        rate.NoRecords.List <- rbind(rate.NoRecords.List, paste(segname, rate.URLname))
       } else {
-        rate.specdetail22 <- getNodeSet(doc = rate1, path = '//div[@id="iihs-ratings"]//div[@class="module-body"]//div[@class="iihsDataStyle"]|//div[@id="iihs-ratings"]//div[@class="module-body"]/div/span')
-        spec.rate.name22 <- sapply(rate.specname22,xmlValue)
-        spec.rate.detail22 <- sapply(rate.specdetail22,xmlValue)
-        rate.header22 <- sapply(getNodeSet(doc = rate1, path = '//div[@id="iihs-ratings"]//div[@class="module-header"]/h3'),xmlValue)
-        rate.type22 <- strsplit(rate.header22, " ")[[1]][1]
-        rate_final22 <- cbind(rate.type22, spec.rate.name22, spec.rate.detail22)  
-        rate_final22 <- gsub('\\r|\\n|\\"|(^\\s*)|(\\s*$)', "",rate_final22)
-        colnames(rate_final22) <- c("RatingType", "RatingName", "Rating")
+        # NHTSA Crash-Test Ratings
+        if (length(rate.specname)==0){
+          print(paste('NHTSA No records', segname, rate.URLname))
+          NHTSA.NoRecords.List <- rbind(NHTSA.NoRecords.List, paste(segname, rate.URLname))
+        } else {
+          rate.specdetail <- getNodeSet(doc = rate1, path = '//div[@id="nhtsa-ratings"]//div[@class="module-body"]//div[@class="rowbottomborder nhtsaDataStyle"]/div/span|//div[@class="nhtsaDataStyle"]/div/span')
+          spec.rate.name <- sapply(rate.specname,xmlValue)
+          spec.rate.detail <- sapply(seq(1, length(rate.specdetail)),
+                                     function(i){substr(xmlAttrs(rate.specdetail[[i]])[['style']], 8, 11)})
+          rate.header <- sapply(getNodeSet(doc = rate1, path = '//div[@id="nhtsa-ratings"]//div[@class="module-header"]/h3'),xmlValue)
+          rate.type <- strsplit(rate.header, " ")[[1]][1]
+          rate_final <- cbind(rate.type, spec.rate.name, spec.rate.detail)
+          rate_final <- gsub('\\r|\\n|\\"|(^\\s*)|(\\s*$)', "",rate_final)
+          colnames(rate_final) <- c("RatingType", "RatingName", "Rating")
+          # change to 5-4-3-2-1
+          rate_final[rate_final[,3]=="83.7", 3]=5
+          rate_final[rate_final[,3]=="67.0", 3]=4
+          rate_final[rate_final[,3]=="50.2", 3]=3
+          rate_final[rate_final[,3]=="33.5", 3]=2
+          rate_final[rate_final[,3]=="16.7", 3]=1
+        }
+        
+        # IIHS Crash-Test Data
+        if (length(rate.specname22)==0){
+          print(paste('IIHS No records', segname, rate.URLname))
+          IIHS.NoRecords.List <- rbind(IIHS.NoRecords.List, paste(segname, rate.URLname))
+          
+        } else {
+          rate.specdetail22 <- getNodeSet(doc = rate1, path = '//div[@id="iihs-ratings"]//div[@class="module-body"]//div[@class="iihsDataStyle"]|//div[@id="iihs-ratings"]//div[@class="module-body"]/div/span')
+          spec.rate.name22 <- sapply(rate.specname22,xmlValue)
+          spec.rate.detail22 <- sapply(rate.specdetail22,xmlValue)
+          rate.header22 <- sapply(getNodeSet(doc = rate1, path = '//div[@id="iihs-ratings"]//div[@class="module-header"]/h3'),xmlValue)
+          rate.type22 <- strsplit(rate.header22, " ")[[1]][1]
+          rate_final22 <- cbind(rate.type22, spec.rate.name22, spec.rate.detail22)  
+          rate_final22 <- gsub('\\r|\\n|\\"|(^\\s*)|(\\s*$)', "",rate_final22)
+          colnames(rate_final22) <- c("RatingType", "RatingName", "Rating")
+        }
+        flag <- paste(length(rate.specname)==0, length(rate.specname22)==0, sep = " and ")
+        rate_final33 <- switch(flag,
+                               "FALSE and TRUE" = rate_final,
+                               "TRUE and FALSE" = rate_final22,
+                               "FALSE and FALSE" = rbind(rate_final, rate_final22))
+        # export data to excel file
+        file.name <- paste(paste("Safety-Ratings", segname, makename, modelname), ".xlsx", sep = "")
+        sheet.name  <- my[rate.n]
+        xls <- loadWorkbook(file.name, create=TRUE)
+        createSheet(xls, name=sheet.name)
+        writeWorksheet(xls, rate_final33, sheet.name, header=TRUE)
+        setColumnWidth(xls, sheet.name, column = 1:2, width = -1)
+        saveWorkbook(xls)
+        print(paste(segname, rate.URLname))
       }
-      flag <- paste(length(rate.specname)==0, length(rate.specname22)==0, sep = " and ")
-      rate_final33 <- switch(flag,
-                             "FALSE and TRUE" = rate_final,
-                             "TRUE and FALSE" = rate_final22,
-                             "FALSE and FALSE" = rbind(rate_final, rate_final22))
-      # export data to excel file
-      file.name <- paste(paste("Safety-Ratings", segname, makename, modelname), ".xlsx", sep = "")
-      sheet.name  <- my[rate.n]
-      xls <- loadWorkbook(file.name, create=TRUE)
-      createSheet(xls, name=sheet.name)
-      writeWorksheet(xls, rate_final33, sheet.name, header=TRUE)
-      setColumnWidth(xls, sheet.name, column = 1:2, width = -1)
-      saveWorkbook(xls)
-      print(paste(segname, rate.URLname))
     }
   }
-}
 }
 (UseTime <- Sys.time() - StartTime)
 
@@ -403,7 +410,7 @@ write.table(NHTSA.NoRecords.List, "NHTSA-NoRecords-List.txt")
 write.table(IIHS.NoRecords.List, "IIHS-NoRecords-List.txt")
 
 
-
+# Following code may don't need to run, the purpose is change the file name of ford data which we download before
 # change ford name
 library(stringr)
 setwd("M:/Car.com/Safety Rating")
@@ -424,3 +431,8 @@ setwd(file_names)
 for (i in 1:length(fordnames)){
   eval(parse(text = paste0("file.rename('", fordnames[i], "' , '", newfordnames[i], "')")))
 }
+  
+
+  
+  
+
