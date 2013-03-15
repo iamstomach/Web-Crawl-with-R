@@ -1,8 +1,8 @@
 ##############################################
 ###        Get Data Form cars.com
-###             2012-03-06
+###             2012-03-014
 ##############################################
-
+# Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jre6')
 rootfile <- "M:/Car.com/MDM Segment"
 setwd(rootfile)
 
@@ -130,10 +130,10 @@ onlyCommonStyleList <- character(0)
 for (segid in 1:dim(MDM.segment)[1]){
   segname <- MDM.segment[segid,]
   dirname <- paste(segname)
-  if (!file.exists(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))){
-    dir.create(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))
+  if (!file.exists(paste(rootfile,'/Specification/',dirname, sep = ''))){
+    dir.create(paste(rootfile,'/Specification/',dirname, sep = ''))
   }
-  setwd(paste('M:/Car.com/MDM Segment/Specification/',dirname, sep = ''))
+  setwd(paste(rootfile,'/Specification/',dirname, sep = ''))
   
   MDM.models.select <- MDM.models[MDM.models[,"segment"] == MDM.segment[segid,],"ModelID"]
   MDM.models.select <- unique(MDM.models.select[!is.na(MDM.models.select)])  
@@ -146,10 +146,10 @@ for (segid in 1:dim(MDM.segment)[1]){
     spec.URLname.List0 <- paste("http://www.cars.com/", veh, my, '/specifications/', sep = '')
     
     dirname1 <- paste(makename, modelname)
-    if (!file.exists(paste('M:/Car.com/MDM Segment/Specification/', dirname, "/", dirname1, sep = ''))){
-      dir.create(paste('M:/Car.com/MDM Segment/Specification/',dirname, "/",dirname1, sep = ''))
+    if (!file.exists(paste(rootfile,'/Specification/', dirname, "/", dirname1, sep = ''))){
+      dir.create(paste(rootfile,'/Specification/',dirname, "/",dirname1, sep = ''))
     }
-    setwd(paste('M:/Car.com/MDM Segment/Specification/',dirname, "/",dirname1, sep = ''))
+    setwd(paste(rootfile,'/Specification/',dirname, "/",dirname1, sep = ''))
     
     for (Sty.n0 in 1:length(spec.URLname.List0)){
       spec.URLname0 <- spec.URLname.List0[Sty.n0];
