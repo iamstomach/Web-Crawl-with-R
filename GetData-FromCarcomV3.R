@@ -1,9 +1,9 @@
 ##############################################
 ###        Get Data Form cars.com
-###             2012-03-014
+###             2012-03-20
 ##############################################
 # Sys.setenv(JAVA_HOME='C:\\Program Files\\Java\\jre6')
-rootfile <- "M:/Car.com/MDM Segment"
+rootfile <- "M:/Car.com/MDM Segment/Add/Mustang"
 setwd(rootfile)
 
 library(stringr)
@@ -19,24 +19,29 @@ ModelYear <- getURL('http://www.cars.com/core/js/templates/crp/mmyCrp.json')
 TT.modelyear1 <- fromJSON(ModelYear)
 hh <- as.data.frame(do.call(rbind, TT.modelyear1$crpData));
 
-ModelList.all <- character(0)
+ModelList.all_new <- character(0)
 for (nn in 1:dim(hh)[1]){
   gg <- TT.modelyear1$crpData[[nn]]
   Make <- as.data.frame(do.call(cbind, gg$mk));
   Model.ModelYear <- as.data.frame(do.call(rbind, gg$mds));
   ModelList <- as.data.frame(cbind(Make, Model.ModelYear))
-  ModelList.all <- rbind(ModelList.all, ModelList)
+  ModelList.all_new <- rbind(ModelList.all_new, ModelList)
 }
 
 file.create("AllModelList.xlsx")
-write.xlsx(ModelList.all, "AllModelList.xlsx", sheetName="Sheet1", 
-           col.names=TRUE, row.names=TRUE, append=FALSE)
-file.info("AllModelList.xlsx")
 
-wb <- loadWorkbook("MDM_segmentation_select.xlsx")
+xls <- loadWorkbook("AllModelList.xlsx", create=TRUE)
+createSheet(xls, name="Web Modellist-All")
+writeWorksheet(xls, ModelList.all, "Web Modellist-All", header=TRUE)
+saveWorkbook(xls)
+
+wb <- loadWorkbook("M:/Car.com/MDM Segment/MDM_segmentation_select.xlsx")
 MDM.models <- readWorksheet(wb, sheet = "Segment-MDM")
 MDM.segment <- unique(MDM.models["segment"])
 
+# Note!!! The new version of web modellist may be diff with the old version
+ModelList.all <- readWorksheet(wb, sheet = "Web Modellist-All")
+ModelList.all <- ModelList.all[,-c(1:2)]
 
 # part1: get Standard-equipment
 # part2: get Specification
